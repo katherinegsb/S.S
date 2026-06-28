@@ -1,19 +1,33 @@
-import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase-middleware";
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  return updateSession(request);
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({
+    request,
+  });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+
+        setAll(
+          cookiesToSet: { name: string; value: string; options?: any }[]
+        ) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  // IMPORTANTE: refresca sesión
+  await supabase.auth.getUser();
+
+  return response;
 }
-
-export const config = {
-  matcher: [
-    /*
-     * Ejecutar el middleware en todas las rutas EXCEPTO:
-     * - _next/static  (archivos estáticos de Next.js)
-     * - _next/image   (optimización de imágenes)
-     * - favicon.ico, íconos, manifest
-     * - API routes de autenticación
-     */
-    "/((?!_next/static|_next/image|favicon.ico|icon-.*|manifest.json|register-sw.js|sw.js).*)",
-  ],
-};
