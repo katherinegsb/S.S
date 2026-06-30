@@ -1,12 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-type Cookie = {
-  name: string;
-  value: string;
-  options?: any;
-};
-
 /**
  * Usar en Server Components, Route Handlers y Server Actions.
  * Lee la sesión desde las cookies del request.
@@ -22,8 +16,7 @@ export function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-
-        setAll(cookiesToSet: Cookie[]) {
+        setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
