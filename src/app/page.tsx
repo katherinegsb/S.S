@@ -1,141 +1,210 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Package, CheckCircle, Circle, LogOut, User } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Cono } from "@/lib/supabase";
-import { ConoCard } from "@/components/ConoCard";
-import { CreateConoForm } from "@/components/CreateConoForm";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Package, TrendingUp, CheckCircle, Circle, Plus, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { AppShell } from "@/components/AppShell";
+import { Item, Categoria } from "@/lib/supabase";
 
-type Tab = "disponible" | "usado";
-
-export default function HomePage() {
-  const { user, signOut, loading: authLoading } = useAuth();
-  const router = useRouter();
-
-  const [conos, setConos] = useState<Cono[]>([]);
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<Item[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("disponible");
 
-  const fetchConos = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/cones");
-    if (res.ok) {
-      const data = await res.json();
-      setConos(data);
-    }
+  const fetchData = useCallback(async () => {
+    const [itemsRes, catRes] = await Promise.all([
+      fetch("/api/items"),
+      fetch("/api/categorias"),
+    ]);
+    if (itemsRes.ok) setItems(await itemsRes.json());
+    if (catRes.ok) setCategorias(await catRes.json());
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchConos();
-  }, [fetchConos]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  async function handleSignOut() {
-    await signOut();
-    router.push("/login");
-  }
+  const disponibles = items.filter(i => i.estado === "disponible");
+  const usados = items.filter(i => i.estado === "usado");
+  const tasaUso = items.length > 0 ? Math.round((usados.length / items.length) * 100) : 0;
 
-  const disponibles = conos.filter((c) => c.estado === "disponible");
-  const usados = conos.filter((c) => c.estado === "usado");
-  const filtered = tab === "disponible" ? disponibles : usados;
+  // Por categoría
+  const porCategoria = categorias.map(cat => ({
+    nombre: cat.nombre,
+    icono: cat.icono,
+    disponible: items.filter(i => i.categoria_id === cat.id && i.estado === "disponible").length,
+    usado: items.filter(i => i.categoria_id === cat.id && i.estado === "usado").length,
+    total: items.filter(i => i.categoria_id === cat.id).length,
+  }));
+
+  const pieData = [
+    { name: "Disponibles", value: disponibles.length, color: "#0ea5e9" },
+    { name: "Usados", value: usados.length, color: "#e2e8f0" },
+  ];
+
+  // Últimos 5
+  const recientes = [...items].slice(0, 5);
 
   return (
-    <div className="pb-8">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-4 pt-10 pb-4 sticky top-0 z-10 shadow-sm">
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
-              <Package size={20} className="text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-slate-800 text-lg leading-tight">Inventario Conos</h1>
-              <p className="text-xs text-slate-400">{conos.length} conos registrados</p>
-            </div>
-          </div>
+    <AppShell>
+      <div className="p-4 lg:p-6 space-y-5 max-w-6xl mx-auto">
 
-          {/* User + logout */}
-          {!authLoading && user && (
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <User size={12} />
-                <span className="max-w-[120px] truncate">{user.email}</span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <LogOut size={12} />
-                Salir
-              </button>
-            </div>
-          )}
+        {/* Bienvenida mobile */}
+        <div className="lg:hidden">
+          <h2 className="text-lg font-bold text-slate-800">Dashboard</h2>
+          <p className="text-sm text-slate-400">{items.length} ítems registrados</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-emerald-50 rounded-xl px-3 py-2 flex items-center gap-2">
-            <Circle size={14} className="text-emerald-500 fill-emerald-500" />
-            <div>
-              <p className="text-xl font-bold text-emerald-700 leading-none">{disponibles.length}</p>
-              <p className="text-xs text-emerald-600">Disponibles</p>
-            </div>
-          </div>
-          <div className="bg-slate-100 rounded-xl px-3 py-2 flex items-center gap-2">
-            <CheckCircle size={14} className="text-slate-400" />
-            <div>
-              <p className="text-xl font-bold text-slate-600 leading-none">{usados.length}</p>
-              <p className="text-xs text-slate-500">Usados</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="px-4 pt-4 space-y-4">
-        {/* Create form — solo si está logueado */}
-        {user && <CreateConoForm onCreated={fetchConos} />}
-
-        {/* Tabs */}
-        <div className="flex bg-slate-100 rounded-xl p-1">
-          {(["disponible", "usado"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
-                tab === t
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {t === "disponible" ? `Disponibles (${disponibles.length})` : `Usados (${usados.length})`}
-            </button>
-          ))}
+        {/* KPIs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard icon={<Package size={18} className="text-sky-500" />} label="Total ítems" value={items.length} delta={null} bg="bg-sky-50" />
+          <KpiCard icon={<Circle size={18} className="text-emerald-500 fill-emerald-500" />} label="Disponibles" value={disponibles.length} delta={`${100 - tasaUso}% del stock`} bg="bg-emerald-50" />
+          <KpiCard icon={<CheckCircle size={18} className="text-slate-400" />} label="Usados" value={usados.length} delta={null} bg="bg-slate-100" />
+          <KpiCard icon={<TrendingUp size={18} className="text-amber-500" />} label="Tasa de uso" value={`${tasaUso}%`} delta={null} bg="bg-amber-50" />
         </div>
 
-        {/* List */}
-        {loading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-white rounded-2xl animate-pulse border border-slate-100" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <Package size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No hay conos {tab === "disponible" ? "disponibles" : "usados"}</p>
-            {tab === "disponible" && user && (
-              <p className="text-sm mt-1">Agrega tu primer cono arriba</p>
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Bar por categoría */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h2 className="font-semibold text-slate-800 text-sm mb-1">Stock por categoría</h2>
+            <p className="text-xs text-slate-400 mb-4">Disponibles vs usados</p>
+            {loading ? (
+              <div className="h-40 bg-slate-50 rounded-xl animate-pulse" />
+            ) : porCategoria.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-slate-300 text-sm">Sin datos aún</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={porCategoria} barSize={18} barGap={3}>
+                  <XAxis dataKey="nombre" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={22} />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }}
+                    formatter={(val, name) => [val, name === "disponible" ? "Disponible" : "Usado"]} />
+                  <Bar dataKey="disponible" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="disponible" />
+                  <Bar dataKey="usado" fill="#e2e8f0" radius={[4, 4, 0, 0]} name="usado" />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((c) => (
-              <ConoCard key={c.id} cono={c} />
-            ))}
+
+          {/* Pie estado */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h2 className="font-semibold text-slate-800 text-sm mb-1">Estado del stock</h2>
+            <p className="text-xs text-slate-400 mb-2">{tasaUso}% utilizado</p>
+            {items.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-slate-300 text-sm">Sin datos</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={3} dataKey="value">
+                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            <div className="space-y-1.5 mt-1">
+              {pieData.map(d => (
+                <div key={d.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+                    <span className="text-slate-500">{d.name}</span>
+                  </div>
+                  <span className="font-semibold text-slate-700">{d.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Tabla recientes + acceso rápido */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Recientes */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800 text-sm">Últimos registros</h2>
+              <Link href="/inventario" className="text-xs text-sky-600 flex items-center gap-1 hover:underline">
+                Ver todos <ArrowRight size={12} />
+              </Link>
+            </div>
+            {loading ? (
+              <div className="p-4 space-y-2">
+                {[...Array(4)].map((_, i) => <div key={i} className="h-10 bg-slate-50 rounded-lg animate-pulse" />)}
+              </div>
+            ) : recientes.length === 0 ? (
+              <div className="py-12 text-center text-slate-300 text-sm">Sin ítems aún</div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {recientes.map(item => {
+                  const titulo = Object.values(item.atributos ?? {})[0] ?? "Sin nombre";
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                      <span className="text-lg">{item.categoria?.icono ?? "📦"}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 capitalize truncate">{titulo}</p>
+                        <p className="text-xs text-slate-400">{item.categoria?.nombre} · {new Date(item.fecha_creacion).toLocaleDateString("es-CL")}</p>
+                      </div>
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                        item.estado === "disponible" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {item.estado === "disponible" ? "Disponible" : "Usado"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Acceso rápido por categoría */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h2 className="font-semibold text-slate-800 text-sm mb-3">Por categoría</h2>
+            <div className="space-y-2">
+              {categorias.length === 0 ? (
+                <p className="text-xs text-slate-400">Sin categorías</p>
+              ) : (
+                categorias.map(cat => {
+                  const stats = porCategoria.find(p => p.nombre === cat.nombre);
+                  return (
+                    <Link
+                      key={cat.id}
+                      href={`/inventario?cat=${cat.id}`}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group"
+                    >
+                      <span className="text-xl">{cat.icono}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-700">{cat.nombre}</p>
+                        <p className="text-xs text-slate-400">{stats?.disponible ?? 0} disponibles</p>
+                      </div>
+                      <ArrowRight size={14} className="text-slate-300 group-hover:text-sky-500 transition-colors" />
+                    </Link>
+                  );
+                })
+              )}
+              {user && (
+                <Link href="/categorias" className="flex items-center gap-2 p-3 rounded-xl border border-dashed border-slate-200 text-slate-400 hover:border-sky-300 hover:text-sky-600 transition-colors text-sm">
+                  <Plus size={15} />
+                  Nueva categoría
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function KpiCard({ icon, label, value, delta, bg }: { icon: React.ReactNode; label: string; value: number | string; delta: string | null; bg: string }) {
+  return (
+    <div className={`${bg} rounded-2xl p-4 flex items-center gap-3`}>
+      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">{icon}</div>
+      <div>
+        <p className="text-2xl font-bold text-slate-800 leading-none">{value}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+        {delta && <p className="text-xs text-emerald-600 mt-0.5">{delta}</p>}
       </div>
     </div>
   );

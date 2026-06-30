@@ -6,21 +6,15 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Inventario Conos",
-  description: "Gestión de inventario de conos de cortinas",
+  title: "Inventario Pro",
+  description: "Sistema de gestión de inventario",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Conos",
-  },
-  icons: {
-    apple: "/icon-192.png",
-  },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Inventario" },
+  icons: { apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0284c7",
+  themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -35,9 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <div className="min-h-screen max-w-lg mx-auto">
-            {children}
-          </div>
+          {children}
         </AuthProvider>
       </body>
     </html>

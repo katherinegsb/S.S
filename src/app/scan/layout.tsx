@@ -5,8 +5,8 @@ export default function ScanLayout({ children }: { children: React.ReactNode }) 
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 size={40} className="text-brand-500 animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 size={40} className="text-sky-500 animate-spin" />
         </div>
       }
     >
